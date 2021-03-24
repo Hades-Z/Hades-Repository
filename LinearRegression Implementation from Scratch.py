@@ -8,12 +8,11 @@ data = load_boston()
 # data
 
 # 数据探索
-df = pd.DataFrame(data['data'])
-df.columns = data['feature_names']
-df.info();df.head()
-print(data['DESCR'])
+# print(data['DESCR'])
+df = pd.DataFrame(data['data'],columns=data['feature_names'])
+# df.info();df.head()
 
-# Pre-processing
+#
 df_cat = df[['CHAS','RAD']].astype('int').astype('category')
 df_num = df.drop(columns=['CHAS','RAD'])
 # print(df_cat.shape); print(df_num.shape)
@@ -22,6 +21,9 @@ df_num = df.drop(columns=['CHAS','RAD'])
 from sklearn.preprocessing import OneHotEncoder
 onehot = OneHotEncoder()
 nar_cat = onehot.fit_transform(df_cat).toarray()
+
+#
+print(df_num.describe().loc[('mean','std'),:])
 
 #
 from sklearn.preprocessing import StandardScaler
@@ -40,36 +42,39 @@ def data_split(data, test_ratio=0.2, val_ratio=0):
     test_index = index[int(len(data)*(1-test_ratio)):]
     return data[train_index], data[test_index], data[val_index]
 
-#
 X_train,X_test,_ = data_split(X,test_ratio=0.2)
 y_train,y_test,_ = data_split(y,test_ratio=0.2)
 
 #
 def LinReg_train(X,y,num_epochs,lr):
+    num_sample,num_feature = X.shape
     # 初始化
     loss=[]
-    W = np.random.normal(0,1,(1,X.shape[1]))
+    W = np.random.normal(0,1,(1,num_feature))
     b = 0
     # 训练
     for i in range(num_epochs):
-        y_hat = np.dot(X,W.T)+b
+        y_hat = X.dot(W.T)+b
         # MSE
-        ls = np.sum((y-y_hat)**2)/2
-        # ls = np.dot((y_train-y_hat).T,(y_train-y_hat))/2
+        ls = np.sum((y_hat-y)**2)/(2*num_sample)
+        # ls = (y_hat-y).dot((y_hat-y).T)/(2*num_sample)
         loss.append(ls)
         # 优化（模型参数迭代）
-        W = W-lr*(-np.dot((y-y_hat).T,X)/X.shape[0])
-        b = b-lr*np.mean(y-y_hat)
+        W = W-lr*(y_hat-y).T.dot(X)/(num_sample)
+        b = b-lr*np.mean(y_hat-y)
     return loss, W, b
-
 #
 def LinReg_price(X,y,W,b):
-    y_hat = np.dot(X,W.T)+b
+    _,num_sample = X.shape
+    y_hat = X.dot(W.T)+b
     # MSE
-    ls = np.sum((y-y_hat)**2)/2
-    # ls = np.dot((y_train-y_hat).T,(y_train-y_hat))/2
+    ls = np.sum((y_hat-y)**2)/(2*num_sample)
+    # ls = (y_hat-y).dot((y_hat-y).T)/(2*num_sample)
     return y_hat, ls
 
 #
 loss_CV,W,b = LinReg_train(X_train,y_train,100,0.03)
 y_hat,loss = LinReg_price(X_test,y_test,W,b)
+
+#
+print(loss_CV)
